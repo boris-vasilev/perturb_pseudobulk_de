@@ -2,7 +2,7 @@
 #SBATCH -A MRC-BSU-SL2-CPU
 #SBATCH -p icelake-himem
 #SBATCH -N 1
-#SBATCH --exclusive
+#SBATCH --cpus-per-task 16
 #SBATCH -t 10:00:00
 
 #. /etc/profile.d/modules.sh
