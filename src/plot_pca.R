@@ -5,9 +5,6 @@ library(Seurat)
 library(sceasy)
 library(reticulate)
 library(tidyverse)
-library(limma)
-library(edgeR)
-library(variancePartition)
 use_condaenv('env_nf')
 
 
@@ -44,22 +41,28 @@ meta <- data.frame(samples = all_samples) %>%
   mutate(batch = factor(batch),
          perturbation = factor(perturbation))
 
-# Filter low-expression genes
-dge_all <- DGEList(counts = all_counts)
-keep <- filterByExpr(dge_all, group = meta$perturbation)
-dge_all <- dge_all[keep, , keep.lib.sizes=FALSE]
-dge_all <- calcNormFactors(dge_all)
 
-# Fixed design matrix including covariates (if needed, here just perturbation)
-fixed_design <- model.matrix(~ 0 + perturbation, data = meta)
-colnames(fixed_design) <- levels(meta$perturbation)
+# -------------------------------
+# Log-transform counts
+# -------------------------------
+log_counts <- log2(all_counts + 1)
 
-# voomWithDreamWeights
-BPPARAM <- MulticoreParam(16)
-vobj <- voomWithDreamWeights(counts = dge_all$counts,
-                             design = fixed_design,
-                             formula = ~ perturbation + (1|batch),
-                             data = meta,
-                             BPPARAM = BPPARAM)
+# -------------------------------
+# Raw PCA
+# -------------------------------
+pca_raw <- prcomp(t(log_counts), scale. = TRUE)
+pca_df_raw <- as.data.frame(pca_raw$x)
+pca_df_raw$batch <- meta$batch
+pca_df_raw$perturbation <- meta$perturbation
 
-saveRDS(vobj, file = "jurkat_dream_weights.RDS")
+ggplot(pca_df_raw, aes(x = PC1, y = PC2, color = batch)) +
+  geom_point(alpha = 0.7) +
+  theme_bw() +
+  labs(title = "Raw PCA - colored by batch") +
+  ggsave("PCA_raw_batch.png", width=8, height=6)
+
+ggplot(pca_df_raw, aes(x = PC1, y = PC2, color = perturbation)) +
+  geom_point(alpha = 0.7) +
+  theme_bw() +
+  labs(title = "Raw PCA - colored by perturbation") +
+  ggsave("PCA_raw_perturbation.png", width=8, height=6)
