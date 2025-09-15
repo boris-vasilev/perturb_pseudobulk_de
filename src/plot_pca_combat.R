@@ -7,9 +7,11 @@ library(reticulate)
 library(tidyverse)
 library(irlba)
 library(variancePartition)
+library(sva)
 use_condaenv('env_nf')
 
 
+print("Reading data")
 seurat_object <- sceasy::convertFormat(adata_chunk_path, from="anndata", to="seurat")
 cts <- LayerData(seurat_object, layer="counts")
 rm(seurat_object)
@@ -43,17 +45,28 @@ meta <- data.frame(samples = all_samples) %>%
   mutate(batch = factor(batch),
          perturbation = factor(perturbation))
 
+# Make a batch factor
+batch_factor <- meta$batch
+
+# Optional: include perturbation as covariate to preserve biological signal
+mod <- model.matrix(~ perturbation, data = meta)
+
+print("Batch correcting with ComBat-seq")
+
+# Run ComBat-seq
+combat_counts <- ComBat_seq(counts = all_counts, batch = batch_factor, group = meta$perturbation)
 
 # -------------------------------
 # Log-transform counts
 # -------------------------------
-log_counts <- log2(all_counts + 1)
+log_counts <- log2(combat_counts + 1)
 
 # -------------------------------
 # Raw approximate PCA
 # -------------------------------
 n_pcs <- 20  # Number of PCs to compute
 
+print("Running truncated PCA")
 # Raw PCA
 pca_raw <- prcomp_irlba(t(log_counts), n = n_pcs, scale. = TRUE)
 pca_df_raw <- as.data.frame(pca_raw$x)
@@ -94,4 +107,4 @@ p_scree <- ggplot(df_plot, aes(x = factor(PC), y = Value, fill = Type)) +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
 
 # Save
-ggsave("PCA_scree_batch.png", plot = p_scree, width = 10, height = 6)
+ggsave("PCA_scree_batch_combat.png", plot = p_scree, width = 10, height = 6)
