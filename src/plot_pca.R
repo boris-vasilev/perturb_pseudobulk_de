@@ -5,6 +5,8 @@ library(Seurat)
 library(sceasy)
 library(reticulate)
 library(tidyverse)
+library(irlba)
+library(variancePartition)
 use_condaenv('env_nf')
 
 
@@ -48,21 +50,48 @@ meta <- data.frame(samples = all_samples) %>%
 log_counts <- log2(all_counts + 1)
 
 # -------------------------------
-# Raw PCA
+# Raw approximate PCA
 # -------------------------------
-pca_raw <- prcomp(t(log_counts), scale. = TRUE)
+n_pcs <- 20  # Number of PCs to compute
+
+# Raw PCA
+pca_raw <- prcomp_irlba(t(log_counts), n = n_pcs, scale. = TRUE)
 pca_df_raw <- as.data.frame(pca_raw$x)
 pca_df_raw$batch <- meta$batch
 pca_df_raw$perturbation <- meta$perturbation
 
-ggplot(pca_df_raw, aes(x = PC1, y = PC2, color = batch)) +
-  geom_point(alpha = 0.7) +
-  theme_bw() +
-  labs(title = "Raw PCA - colored by batch") +
-  ggsave("PCA_raw_batch.png", width=8, height=6)
+# Variance explained by PCs
+var_explained <- (pca_raw$sdev^2) / sum(pca_raw$sdev^2) * 100
 
-ggplot(pca_df_raw, aes(x = PC1, y = PC2, color = perturbation)) +
-  geom_point(alpha = 0.7) +
+batch_var <- apply(pca_raw$x[,1:20], 2, function(pc){
+  summary(lm(pc ~ meta$batch))$r.squared
+})
+
+batch_var_df <- data.frame(
+  PC = 1:length(var_explained),
+  VarianceExplained = var_explained,
+  BatchR2 = batch_var  # % variance explained by batch
+)
+
+# Prepare data
+df_plot <- batch_var_df %>%
+  mutate(BatchR2_pct = -BatchR2 * 100) %>%  # invert for downward bars
+  pivot_longer(cols = c("VarianceExplained", "BatchR2_pct"),
+               names_to = "Type", values_to = "Value")
+
+# Clean labels
+df_plot$Type <- factor(df_plot$Type, levels = c("VarianceExplained", "BatchR2_pct"),
+                       labels = c("PC Variance", "Batch R²"))
+
+# Vertical mirrored bar plot
+p_mirror <- ggplot(df_plot, aes(x = factor(PC), y = Value, fill = Type)) +
+  geom_bar(stat = "identity", position = "identity", width = 0.7) +
+  scale_y_continuous(labels = abs) +  # show positive numbers
+  scale_fill_manual(values = c("steelblue", "tomato")) +
+  labs(x = "Principal Component", y = "% Variance / R²",
+       title = "Variance explained by PCs vs Batch contribution") +
   theme_bw() +
-  labs(title = "Raw PCA - colored by perturbation") +
-  ggsave("PCA_raw_perturbation.png", width=8, height=6)
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+
+# Save
+ggsave("PCA_scree_batch.png", plot = p_mirror, width = 10, height = 6)
