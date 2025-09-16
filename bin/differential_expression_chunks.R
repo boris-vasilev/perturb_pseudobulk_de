@@ -79,6 +79,7 @@ for(i in seq_along(gene_list)) {
   valid_batches <- names(batch_counts[batch_counts == 2])
   # Filter colData
   colData <- colData[colData$batch %in% valid_batches, ]
+  colData <- colData %>% droplevels
   # Filter counts to match the samples in filtered colData
   counts <- counts[, rownames(colData)]
     
