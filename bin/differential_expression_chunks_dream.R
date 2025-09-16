@@ -8,7 +8,9 @@ library(Seurat)
 library(sceasy)
 library(reticulate)
 library(tidyverse)
-library(DESeq2)
+library(edgeR)
+library(limma)
+library(variancePartition)
 
 
 use_condaenv('env_nf')
