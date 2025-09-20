@@ -12,7 +12,7 @@ source ~/.bashrc
 conda activate env_nf
 
 nextflow mega.nf -resume \
-    --inputSeuratObject /home/biv22/rds/rds-mrc-bsu-csoP2nj6Y6Y/biv22/AMD/data/perturb/seurat/K562_gwps_raw_singlecell.h5ad \
+    --inputSeuratObject data/K562_gwps_raw_singlecell.h5ad \
     --outputDir /home/biv22/rds/rds-mrc-bsu-csoP2nj6Y6Y/biv22/AMD/data/perturb/DEGs/K562_pseudo \
-    --numWorkers 50 
+    --numWorkers 5 
 
