@@ -5,8 +5,9 @@
 #SBATCH --exclusive
 #SBATCH -t 10:00:00
 
-#. /etc/profile.d/modules.sh
+. /etc/profile.d/modules.sh
 
+module load gcc/11
 #module load miniconda/3
 source ~/.bashrc
 conda activate env_nf

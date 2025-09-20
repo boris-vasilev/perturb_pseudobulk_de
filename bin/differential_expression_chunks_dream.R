@@ -81,6 +81,7 @@ for(i in seq_along(gene_list)) {
   valid_batches <- names(batch_counts[batch_counts == 2])
   # Filter colData
   colData <- colData[colData$batch %in% valid_batches, ]
+  colData <- colData %>% droplevels
   # Filter counts to match the samples in filtered colData
   counts <- counts[, rownames(colData)]
 
@@ -89,16 +90,32 @@ for(i in seq_along(gene_list)) {
   keep <- filterByExpr(dge, group = colData$perturbation)
   dge <- dge[keep, ]
   dge <- calcNormFactors(dge)
-  
-  # voom + dream with random effect for batch
-  form <- ~ perturbation + (1|batch)
-  print("Estimating precision weights")
-  vobj <- voomWithDreamWeights(dge, form, colData)
-  print("Estimating regression coefficients")
-  fit <- dream(vobj, form, colData)
+ 
+  design_fixed <- model.matrix(~ perturbation + batch, data = colData)
 
-  # Extract results for perturbation effect
-  res <- topTable(fit, coef="perturbation" , number=Inf)
+  res <- tryCatch({
+    # Try dream with random batch effect
+    print("Estimating precision weights")
+    vobj <- voomWithDreamWeights(counts = dge$counts,
+                                 design = design_fixed,
+                                 formula = ~ perturbation + (1|batch),
+                                 data = colData,
+                                 BPPARAM = MulticoreParam(4))
+    print("Estimating regression coefficients")
+    fit <- dream(vobj, ~ perturbation + (1|batch), data = colData)
+    res_tab <- topTable(fit, coef = paste0("perturbation", gene), number = Inf)
+    res_tab$method <- "dream"
+    res_tab
+  }, error = function(e) {
+    message("dream failed for ", gene, " (fallback to limma-trend): ", e$message)
+    # fallback: limma-trend with batch as fixed effect
+    v <- voom(dge, design_fixed)
+    fit <- lmFit(v, design_fixed)
+    fit <- eBayes(fit, trend = TRUE)
+    res_tab <- topTable(fit, coef = paste0("perturbation", gene), number = Inf)
+    res_tab$method <- "dream"
+    res_tab
+  })
 
   write.table(res, file=degs_file_name, sep="\t", row.names=T)
 }

@@ -12,59 +12,95 @@ library(DESeq2)
 
 
 # Function to run DESeq2 on each mega-batch and extract results
-run_deseq2 <- function(counts, colData) {
+run_deseq2 <- function(counts.mb, colData.mb) {
   # Filter out batches that have only gene perturbation or only NT perturbation
   # Count how many times each batch appears
-  batch_counts <- table(colData$batch)
+  batch_counts <- table(colData.mb$batch)
   # Keep only batches with exactly two entries (i.e., 1 perturbed + 1 control)
   valid_batches <- names(batch_counts[batch_counts == 2])
-  # Filter colData
-  colData <- colData[colData$batch %in% valid_batches, ]
-  colData <- colData %>% droplevels
-  # Filter counts to match the samples in filtered colData
-  counts <- counts[, rownames(colData)]
+  # Filter colData.mb
+  colData.mb <- colData.mb[colData.mb$batch %in% valid_batches, ]
+  colData.mb <- colData.mb %>% droplevels
+  # Filter counts to match the samples in filtered colData.mb
+  counts.mb <- counts.mb[, rownames(colData.mb)]
     
   # 3. Create DESeq2 object
-  dds <- DESeqDataSetFromMatrix(countData = counts,
-                                colData = colData,
+  dds <- DESeqDataSetFromMatrix(countData = counts.mb,
+                                colData = colData.mb,
                                 design = ~ batch + perturbation)
 
   
+  # Run DESeq2 with glmGamPoi and Wald test
+  dds <- DESeq(dds,
+               test = "Wald",
+               fitType = "glmGamPoi",
+               minmu = 1e-6,
+               minReplicatesForReplace = Inf,
+               betaPrior = FALSE)
   
-  # Likelihood ratio test - reduced formula is only with the gem_group. The effect of adding the perturbation to the formula
-  # The LRT is comparing the model with the perturbation vs the model without
-  dds <- DESeq(dds, test = "LRT", reduced = ~ 1 + batch, minmu = 1e-6,  minReplicatesForReplace = Inf,  betaPrior = FALSE)
-
+  
   res <- results(dds)
 
   # Return log2FC, SE, and p-values for meta-analysis
-  return(data.frame(log2FC = res$log2FoldChange,
+  return(data.frame(gene = rownames(res),
+                    log2FC = res$log2FoldChange,
                     SE = res$lfcSE,
                     pvalue = res$pvalue))
 }
 
-# Inverse variance weighted meta-analysis
+# Inverse variance weighted meta-analysis across mega-batches
 meta_analysis <- function(results_list) {
-  log2FCs <- sapply(results_list, function(res) res$log2FC)
-  SEs <- sapply(results_list, function(res) res$SE)
-
-  # Calculate the inverse variance weights (1 / SE^2)
-  weights <- 1 / SEs^2
-
-  # Meta-analyze log2FC using inverse variance weighted method
-  meta_log2FC <- rowSums(weights * log2FCs) / rowSums(weights)
-  meta_SE <- sqrt(1 / rowSums(weights))
-
-  # Wald z-statistic & p-value
-  z <- meta_log2FC / meta_SE
-  pval <- 2 * pnorm(-abs(z))
-
-  # Return meta-analysis results
-  return(data.frame(meta_log2FC = meta_log2FC,
-                    meta_SE = meta_SE,
-                    z = z,
-                    pval = pval))
+  
+  # Get the common set of genes across all mega-batches
+  common_genes <- Reduce(intersect, lapply(results_list, function(x) x$gene))
+  
+  if(length(common_genes) == 0) return(NULL)
+  
+  # Initialize output
+  meta_results <- vector("list", length(common_genes))
+  
+  for(i in seq_along(common_genes)) {
+    g <- common_genes[i]
+    
+    # Extract per-mega-batch values for this gene
+    log2FCs <- sapply(results_list, function(res) res$log2FC[res$gene == g])
+    SEs     <- sapply(results_list, function(res) res$SE[res$gene == g])
+    
+    # Remove NA values (e.g., if a mega-batch had too few samples)
+    valid <- !is.na(log2FCs) & !is.na(SEs)
+    log2FCs <- log2FCs[valid]
+    SEs <- SEs[valid]
+    
+    if(length(log2FCs) == 0) next
+    
+    # Inverse variance weighting
+    weights <- 1 / SEs^2
+    meta_log2FC <- sum(weights * log2FCs) / sum(weights)
+    meta_SE <- sqrt(1 / sum(weights))
+    
+    # Wald statistic and p-value
+    stat <- meta_log2FC / meta_SE
+    pval <- 2 * pnorm(-abs(stat))
+    
+    meta_results[[i]] <- data.frame(
+      gene = g,
+      log2FoldChange = meta_log2FC,
+      lfcSE = meta_SE,
+      stat = stat,
+      pvalue = pval
+    )
+  }
+  
+  # Combine results
+  meta_df <- bind_rows(meta_results)
+  
+  # Multiple testing correction
+  meta_df$padj <- p.adjust(meta_df$pvalue, method = "BH")
+  
+  return(meta_df)
 }
+
+
 
 use_condaenv('env_nf')
 
@@ -81,7 +117,7 @@ cts.t <- t(cts)
 cts.t <- as.data.frame(cts.t)
 
 # get values where to split
-splitRows <- gsub('\\_.*', '', rownames(cts.t))
+splitRows <- gsub('\\|.*', '', rownames(cts.t))
 
 # split data.frame
 cts.split <- split.data.frame(cts.t,
@@ -119,7 +155,7 @@ for(i in seq_along(gene_list)) {
   colData <- data.frame(samples = colnames(counts))
 
   colData <- colData %>%
-    separate(samples, into = c("perturbation", "batch"), sep = "\\_", remove = FALSE) %>%
+    separate(samples, into = c("perturbation", "batch"), sep = "\\|", remove = FALSE) %>%
     column_to_rownames(var = 'samples') %>%
     mutate(batch = factor(batch),
            perturbation = factor(perturbation, levels = c("non-targeting", gene))) # order of factor levels is importent to have the correct control group in DESeq
@@ -141,31 +177,18 @@ for(i in seq_along(gene_list)) {
   # Loop over the mega-batches
   for (mega_batch in levels(colData$mega_batch)) {
     # Select only batches of data in the mega-batch
+    print(paste0("[", i, "/", total_genes, "] Processing batch ", mega_batch))
     colData.mb <- colData[colData$mega_batch == mega_batch, ]
-    counts.mb <- counts[, rownames(cd.mb), drop = FALSE]
-    batch_indices <- which(colData$batch %in% levels(colData$batch)[start_idx:end_idx])
+    counts.mb <- counts[, rownames(colData.mb), drop = FALSE]
 
     # Run DESeq2 for the current mega-batch
-    res_mega_batch <- run_deseq2(colData.mb, counts.mb)
+    res_mega_batch <- run_deseq2(counts.mb, colData.mb)
 
     if (!is.null(res_mega_batch)) {
       results_list[[mega_batch]] <- res_mega_batch
     }
   }
 
-  # Perform meta-analysis if we have at least 2 results
-  if (length(results_list) > 0) {
-    # Ensure all results align by gene rownames
-    common_genes <- Reduce(intersect, lapply(results_list, rownames))
-    results_list <- lapply(results_list, function(x) x[common_genes, , drop = FALSE])
-
-    meta_results <- meta_analysis(results_list)
-
-    # Multiple testing correction
-    meta_results$padj <- p.adjust(meta_results$pval, method = "BH")
-
-    write.table(meta_results, file = degs_file_name, sep = "\t", row.names = TRUE)
-  } else {
-    write(paste0("Warning: No valid mega-batches for gene ", gene), stderr())
-  }
+  meta_results <- meta_analysis(results_list)
+  write.table(meta_results, file = file.path(output_dir, degs_file_name), sep = "\t", row.names = TRUE)
 }

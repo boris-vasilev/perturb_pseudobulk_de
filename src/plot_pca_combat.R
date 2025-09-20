@@ -53,8 +53,8 @@ mod <- model.matrix(~ perturbation, data = meta)
 
 print("Batch correcting with ComBat-seq")
 
-# Run ComBat-seq
-combat_counts <- ComBat_seq(counts = all_counts, batch = batch_factor, group = meta$perturbation)
+combat_counts <- ComBat_seq(counts = all_counts,
+                            batch = batch_factor)
 
 # -------------------------------
 # Log-transform counts

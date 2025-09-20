@@ -5,7 +5,7 @@ params.numWorkers = 16
 params.outputDir = 'DEGs' // outputDir for DEGs
 
 process SPLIT_SEURAT_OBJECT {
-    memory '100GB'
+    memory '210GB'
     time '6h'
 
     input:
@@ -21,10 +21,10 @@ process SPLIT_SEURAT_OBJECT {
 }
 
 process CHUNKS_DIFFERENTIAL_EXPRESSION {
-    memory '5GB'
+    memory '10GB'
     time '8h'
     cpus 1
-    maxForks 8
+    //maxForks 8
 
     input:
     path seurat_chunk
