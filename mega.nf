@@ -21,9 +21,11 @@ process SPLIT_SEURAT_OBJECT {
 }
 
 process CHUNKS_DIFFERENTIAL_EXPRESSION {
-    memory '10GB'
-    time '8h'
-    cpus 1
+    //memory '10GB'
+    time '12h'
+    cpus 3
+    executor 'slurm'
+    array 30
     //maxForks 8
 
     input:

@@ -14,6 +14,6 @@ conda activate env_nf
 
 nextflow mega.nf -resume \
     --inputSeuratObject data/K562_gwps_raw_singlecell.h5ad \
-    --outputDir /home/biv22/rds/rds-mrc-bsu-csoP2nj6Y6Y/biv22/data/perturb/DEGs/K562_GenomeWide \
+    --outputDir /home/biv22/rds/rds-mrc-bsu-csoP2nj6Y6Y/biv22/data/perturb/K562_GenomeWide \
     --numWorkers 30
 
