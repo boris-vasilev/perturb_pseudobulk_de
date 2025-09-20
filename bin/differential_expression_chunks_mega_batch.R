@@ -17,7 +17,15 @@ run_deseq2 <- function(counts.mb, colData.mb) {
   # Count how many times each batch appears
   batch_counts <- table(colData.mb$batch)
   # Keep only batches with exactly two entries (i.e., 1 perturbed + 1 control)
-  valid_batches <- names(batch_counts[batch_counts == 2])
+  valid_batches <- names(which(tapply(colData.mb$perturbation, 
+                                    colData.mb$batch, 
+                                    function(x) {
+                                      "non-targeting" %in% x && length(unique(x)) > 1
+                                    })))
+  if(length(valid_batches) < 3) {
+    write(paste0("Warning: Within mega-batch effect cannot be estimated - not enough replicates (gene was perturbed only in one GEM group)"), stderr())
+    return(NULL)
+  }                                    
   # Filter colData.mb
   colData.mb <- colData.mb[colData.mb$batch %in% valid_batches, ]
   colData.mb <- colData.mb %>% droplevels
@@ -30,10 +38,11 @@ run_deseq2 <- function(counts.mb, colData.mb) {
                                 design = ~ batch + perturbation)
 
   
-  # Run DESeq2 with glmGamPoi and Wald test
+  # Run DESeq2 with glmGamPoi and LRT test
   dds <- DESeq(dds,
-               test = "Wald",
+               test = "LRT",
                fitType = "glmGamPoi",
+               reduced = ~ 1 + batch,
                minmu = 1e-6,
                minReplicatesForReplace = Inf,
                betaPrior = FALSE)
@@ -99,8 +108,6 @@ meta_analysis <- function(results_list) {
   
   return(meta_df)
 }
-
-
 
 use_condaenv('env_nf')
 
