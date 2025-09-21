@@ -22,7 +22,7 @@ process SPLIT_SEURAT_OBJECT {
 
 process CHUNKS_DIFFERENTIAL_EXPRESSION {
     //memory '10GB'
-    time '12h'
+    time '24h'
     cpus 3
     executor 'slurm'
     array 30
