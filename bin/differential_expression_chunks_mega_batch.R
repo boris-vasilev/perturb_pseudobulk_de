@@ -102,6 +102,14 @@ meta_analysis <- function(results_list) {
   
   # Combine results
   meta_df <- bind_rows(meta_results)
+
+  meta_df <- meta_df %>%
+  mutate(
+    log2FoldChange = as.numeric(log2FoldChange),
+    lfcSE = as.numeric(lfcSE),
+    stat = as.numeric(stat),
+    pvalue = as.numeric(pvalue)
+  )
   
   # Multiple testing correction
   meta_df$padj <- p.adjust(meta_df$pvalue, method = "BH")
