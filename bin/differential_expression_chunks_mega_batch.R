@@ -205,5 +205,5 @@ for(i in seq_along(gene_list)) {
   }
 
   meta_results <- meta_analysis(results_list)
-  write.table(meta_results, file = file.path(output_dir, degs_file_name), sep = "\t", row.names = TRUE)
+  write.table(meta_results, file = file.path(output_dir, degs_file_name), sep = "\t", row.names = FALSE)
 }
