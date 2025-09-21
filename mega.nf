@@ -62,5 +62,5 @@ workflow {
     input_seurat = Channel.fromPath(params.inputSeuratObject)
     pseudobulk = PSEEUDOBULK(input_seurat)
     chunks = SPLIT_SEURAT_OBJECT(pseudobulk)
-    DIFFERENTIAL_EXPRESSION(seurat_chunks.flatten())
+    DIFFERENTIAL_EXPRESSION(chunks.flatten())
 }
