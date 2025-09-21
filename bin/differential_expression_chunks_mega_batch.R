@@ -41,7 +41,6 @@ run_deseq2 <- function(counts.mb, colData.mb) {
   # Run DESeq2 with glmGamPoi and LRT test
   dds <- DESeq(dds,
                test = "LRT",
-               fitType = "glmGamPoi",
                reduced = ~ 1 + batch,
                minmu = 1e-6,
                minReplicatesForReplace = Inf,
@@ -50,11 +49,12 @@ run_deseq2 <- function(counts.mb, colData.mb) {
   
   res <- results(dds)
 
+  # turn rownames into a column called "gene"
+  res <- as.data.frame(res) %>%
+    rownames_to_column("gene")
+
   # Return log2FC, SE, and p-values for meta-analysis
-  return(data.frame(gene = rownames(res),
-                    log2FC = res$log2FoldChange,
-                    SE = res$lfcSE,
-                    pvalue = res$pvalue))
+  return(res)
 }
 
 # Inverse variance weighted meta-analysis across mega-batches
@@ -72,8 +72,8 @@ meta_analysis <- function(results_list) {
     g <- common_genes[i]
     
     # Extract per-mega-batch values for this gene
-    log2FCs <- sapply(results_list, function(res) res$log2FC[res$gene == g])
-    SEs     <- sapply(results_list, function(res) res$SE[res$gene == g])
+    log2FCs <- sapply(results_list, function(res) res$log2FoldChange[res$gene == g])
+    SEs     <- sapply(results_list, function(res) res$lfcSE[res$gene == g])
     
     # Remove NA values (e.g., if a mega-batch had too few samples)
     valid <- !is.na(log2FCs) & !is.na(SEs)
