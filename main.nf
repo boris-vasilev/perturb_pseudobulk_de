@@ -4,27 +4,45 @@ params.inputSeuratObject = '/rds/user/biv22/hpc-work/AMD/data/perturb/seurat/GSE
 params.numWorkers = 16
 params.outputDir = 'DEGs' // outputDir for DEGs
 
-process SPLIT_SEURAT_OBJECT {
-    memory '100GB'
-    time '6h'
+process PSEUDOBULK {
+    time '20m'
+    cpus 20
+    label 'short'
 
     input:
     path h5ad_path
+
+    output:
+    path 'pseudobulk.h5ad'
+
+    script:
+    """
+    pseudobulk.py ${h5ad_path}
+    """
+}
+
+process SPLIT_SEURAT_OBJECT {
+    time '20m'
+    cpus 20
+    label 'short'
+
+    input:
+    path pseudobulk_path
 
     output:
     path 'pseudobulk_chunk_*.h5ad'
 
     script:
     """
-    pseudobulk.py $h5ad_path $params.numWorkers
+    chunk.py ${pseudobulk_path} ${params.numWorkers}
     """
 }
 
-process CHUNKS_DIFFERENTIAL_EXPRESSION {
-    memory '6GB'
+process DIFFERENTIAL_EXPRESSION {
     time '8h'
-    cpus 1
-    //maxForks 8
+    cpus 2
+    executor 'slurm'
+    array params.numWorkers
 
     input:
     path seurat_chunk
@@ -42,7 +60,7 @@ process CHUNKS_DIFFERENTIAL_EXPRESSION {
 
 workflow {
     input_seurat = Channel.fromPath(params.inputSeuratObject)
-    input_seurat.view()
-    seurat_chunks = SPLIT_SEURAT_OBJECT(input_seurat)
-    CHUNKS_DIFFERENTIAL_EXPRESSION(seurat_chunks.flatten())
+    pseudobulk = PSEEUDOBULK(input_seurat)
+    chunks = SPLIT_SEURAT_OBJECT(pseudobulk)
+    DIFFERENTIAL_EXPRESSION(chunks.flatten())
 }
