@@ -4,7 +4,7 @@ params.inputSeuratObject = '/rds/user/biv22/hpc-work/AMD/data/perturb/seurat/GSE
 params.numWorkers = 16
 params.outputDir = 'DEGs' // outputDir for DEGs
 
-process PSEEUDOBULK {
+process PSEUDOBULK {
     time '20m'
     label 'short_exclusive'
 
@@ -60,7 +60,7 @@ process DIFFERENTIAL_EXPRESSION {
 
 workflow {
     input_seurat = Channel.fromPath(params.inputSeuratObject)
-    pseudobulk = PSEEUDOBULK(input_seurat)
+    pseudobulk = PSEUDOBULK(input_seurat)
     chunks = SPLIT_SEURAT_OBJECT(pseudobulk)
     DIFFERENTIAL_EXPRESSION(chunks.flatten())
 }

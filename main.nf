@@ -60,7 +60,7 @@ process DIFFERENTIAL_EXPRESSION {
 
 workflow {
     input_seurat = Channel.fromPath(params.inputSeuratObject)
-    pseudobulk = PSEEUDOBULK(input_seurat)
+    pseudobulk = PSEUDOBULK(input_seurat)
     chunks = SPLIT_SEURAT_OBJECT(pseudobulk)
     DIFFERENTIAL_EXPRESSION(chunks.flatten())
 }
