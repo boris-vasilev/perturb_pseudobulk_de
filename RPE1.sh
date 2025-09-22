@@ -7,6 +7,6 @@ module load gcc/11
 source ~/.bashrc
 
 nextflow main.nf -resume \
-    --inputSeuratObject data/rpe1_raw_singlecell_01.h5ad \
+    --inputSeuratObject /rds/project/rds-csoP2nj6Y6Y/biv22/perturb_pseudobulk_de/data/rpe1_raw_singlecell_01.h5ad \
     --outputDir /home/biv22/rds/rds-mrc-bsu-csoP2nj6Y6Y/biv22/data/perturb/RPE1 \
     --numWorkers 100
