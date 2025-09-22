@@ -87,13 +87,14 @@ for(i in seq_along(gene_list)) {
   dds <- DESeqDataSetFromMatrix(countData = counts,
                                 colData = colData,
                                 design = ~ batch + perturbation)
-
-  
   
   # Likelihood ratio test - reduced formula is only with the gem_group. The effect of adding the perturbation to the formula
   # The LRT is comparing the model with the perturbation vs the model without
   dds <- DESeq(dds, test = "LRT", reduced = ~ 1 + batch, minmu = 1e-6,  minReplicatesForReplace = Inf,  betaPrior = FALSE)
 
-  write.table(as.data.frame(results(dds)), file=degs_file_name, sep="\t", row.names=T)
+  res <- as.data.frame(res) %>%
+    rownames_to_column("gene")
+
+  write.table(res, file=degs_file_name, sep="\t", row.names=FALSE)
 
 }
