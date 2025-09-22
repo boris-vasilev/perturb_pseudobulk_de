@@ -92,7 +92,7 @@ for(i in seq_along(gene_list)) {
   # The LRT is comparing the model with the perturbation vs the model without
   dds <- DESeq(dds, test = "LRT", reduced = ~ 1 + batch, minmu = 1e-6,  minReplicatesForReplace = Inf,  betaPrior = FALSE)
 
-  res <- as.data.frame(res) %>%
+  res <- as.data.frame(results(dds)) %>%
     rownames_to_column("gene")
 
   write.table(res, file=degs_file_name, sep="\t", row.names=FALSE)
