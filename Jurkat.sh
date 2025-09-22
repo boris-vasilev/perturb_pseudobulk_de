@@ -13,6 +13,6 @@ source ~/.bashrc
 conda activate env_nf
 
 nextflow dream.nf -resume \
-    --inputSeuratObject data/GSE264667_jurkat_raw_singlecell_01.h5ad \
+    --inputSeuratObject /rds/project/rds-csoP2nj6Y6Y/biv22/perturb_pseudobulk_de/data/jurkat_raw_singlecell_01.h5ad \
     --outputDir /home/biv22/rds/rds-mrc-bsu-csoP2nj6Y6Y/biv22/data/perturb/Jurkat \
     --numWorkers 16
