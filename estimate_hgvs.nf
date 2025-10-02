@@ -42,5 +42,5 @@ process ESTIMATE_GENE_VARIANCE {
 workflow {
     input_seurat = Channel.fromPath(params.inputSeuratObject)
     pseudobulk = PSEUDOBULK(input_seurat)
-
+    ESTIMATE_GENE_VARIANCE(pseudobulk)
 }
