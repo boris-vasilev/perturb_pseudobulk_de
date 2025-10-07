@@ -5,9 +5,18 @@ import sys
 
 # Parse arguments
 h5ad_path = sys.argv[1]  # Path to h5ad file
+perturbation_list_path = sys.argv[2]  # Path to h5ad file
+
+with open(perturbation_list_path) as f:
+    perturbation_list = [line.strip() for line in f if line.strip()]
+
 
 # Read pseudobulk h5ad
 pseudobulk = sc.read_h5ad(h5ad_path)
+
+# Filter to only a set of perturbed genes
+# To match K562-GW and K562-E we need to limit the scope of GW to only essential perturbs
+pseudobulk = pseudobulk[pseudobulk.obs["gene"].isin(perturbation_list)].copy()
 
 # Estimate gene variance, and normalised variance (VST)
 sc.pp.highly_variable_genes(

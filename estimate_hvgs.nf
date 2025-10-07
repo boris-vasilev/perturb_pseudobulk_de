@@ -1,6 +1,7 @@
 nextflow.enable.dsl=2
 
 params.inputSeuratObject = ''
+params.filterEssential = ''
 params.outputDir = '' // outputDir for gene_variance.csv
 
 process PSEUDOBULK {
@@ -27,6 +28,7 @@ process ESTIMATE_GENE_VARIANCE {
 
     input:
     path pseudobulk_path
+    path filter_essential
 
     output:
     path 'gene_variance.csv'
@@ -41,6 +43,7 @@ process ESTIMATE_GENE_VARIANCE {
 
 workflow {
     input_seurat = Channel.fromPath(params.inputSeuratObject)
+    filter_essential = Channel.fromPath(params.filterEssential)
     pseudobulk = PSEUDOBULK(input_seurat)
-    ESTIMATE_GENE_VARIANCE(pseudobulk)
+    ESTIMATE_GENE_VARIANCE(pseudobulk, filter_essential)
 }
