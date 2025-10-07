@@ -28,7 +28,7 @@ process ESTIMATE_GENE_VARIANCE {
 
     input:
     path pseudobulk_path
-    path filter_essential
+    path essential_genes_path
 
     output:
     path 'gene_variance.csv'
@@ -37,13 +37,13 @@ process ESTIMATE_GENE_VARIANCE {
 
     script:
     """
-    estimate_gene_variance.py ${pseudobulk_path}
+    estimate_gene_variance.py ${pseudobulk_path} ${essential_genes_path}
     """
 }
 
 workflow {
     input_seurat = Channel.fromPath(params.inputSeuratObject)
-    filter_essential = Channel.fromPath(params.filterEssential)
+    essential_genes_path = Channel.fromPath(params.filterEssential)
     pseudobulk = PSEUDOBULK(input_seurat)
-    ESTIMATE_GENE_VARIANCE(pseudobulk, filter_essential)
+    ESTIMATE_GENE_VARIANCE(pseudobulk, essential_genes_path)
 }
