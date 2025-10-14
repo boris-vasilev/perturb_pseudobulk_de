@@ -1,3 +1,4 @@
+#!/home/biv22/.conda/envs/env_nf/bin/python
 import scanpy as sc
 import pandas as pd
 import sys
