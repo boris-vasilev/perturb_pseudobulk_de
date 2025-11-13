@@ -3,6 +3,7 @@ import scanpy as sc
 import pandas as pd
 import numpy as np
 import sys
+from scipy import stats
 
 # Arguments
 h5ad_path = sys.argv[1]      # Path to h5ad for a single cell line
@@ -33,24 +34,39 @@ cpm = counts_df.div(libsize, axis=0) * 1e6         # counts per million per cell
 pb_counts["base_mean_cpm"] = cpm.mean(axis=0).values
 pb_counts["log1p_base_mean_cpm"] = np.log1p(pb_counts["base_mean_cpm"])
 
-# --- DESeq2 median-of-ratios normalization ---
-# Treat each cell as a "sample" for normalization purposes
-def deseq2_median_of_ratios(df):
-    # Compute geometric means per gene (exclude zeros)
-    geometric_means = np.exp(np.log(df.replace(0, np.nan)).mean(axis=1))
-    # Compute ratios to geometric means
-    ratios = df.div(geometric_means, axis=0)
-    # Median ratio per sample = size factor
-    size_factors = ratios.median(axis=0)
-    # Normalize counts by size factors
-    norm_df = df.div(size_factors, axis=1)
-    return norm_df, size_factors
+# --- DESeq2-equivalent normalization ---
+def deseq2_size_factors(count_matrix):
+    """
+    Calculate DESeq2 size factors using the median-of-ratios method
+    count_matrix: cells x genes
+    """
+    # Geometric mean per gene (avoiding log(0))
+    with np.errstate(divide='ignore', invalid='ignore'):
+        log_counts = np.log(count_matrix.replace(0, np.nan))  # Replace 0 with NaN to ignore in mean
+        geometric_means = np.exp(np.nanmean(log_counts, axis=0))
+    
+    # Ratios of counts to geometric mean
+    ratios = count_matrix.div(geometric_means, axis=1)
+    
+    # Size factor per cell (median ratio ignoring NaNs)
+    size_factors = ratios.apply(lambda x: np.nanmedian(x), axis=1)
+    
+    return size_factors
 
-norm_counts, size_factors = deseq2_median_of_ratios(counts_df.T)  # genes x cells
+# Calculate DESeq2 size factors
+size_factors = deseq2_size_factors(counts_df)
 
-# Compute per-gene mean of DESeq2-normalized counts
-pb_counts["base_mean_deseq2"] = norm_counts.mean(axis=1).values
-pb_counts["log1p_base_mean_deseq2"] = np.log1p(pb_counts["base_mean_deseq2"])
+# Normalize counts
+deseq2_normalized = counts_df.div(size_factors, axis=0)
+
+# Get mean normalized expression per gene
+pb_counts["base_mean_deseq2_normalized"] = deseq2_normalized.mean(axis=0).values
+pb_counts["log1p_base_mean_deseq2"] = np.log1p(pb_counts["base_mean_deseq2_normalized"])
+
+# --- Add relative expression (proportion of total counts) ---
+total_umis = counts_df.sum().sum()
+pb_counts["base_proportion_of_total"] = pb_counts["base_counts"] / total_umis
+pb_counts["log1p_base_proportion"] = np.log1p(pb_counts["base_proportion_of_total"])
 
 # --- Save results ---
 pb_counts.to_csv(output_csv)
