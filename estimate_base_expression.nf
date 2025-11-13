@@ -4,7 +4,7 @@ params.inputH5AD = ''
 params.outputDir = '' // outputDir for gene_variance.csv
 
 process ESTIMATE_BASE_EXPRESSION {
-    time '20m'
+    time '5m'
     cpus 20
     label 'short'
 
